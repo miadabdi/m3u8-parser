@@ -210,6 +210,115 @@ function handleContentSteering(contentSteering) {
   return item + '\n';
 }
 
+function stringifyPart(part) {
+  let item = '#EXT-X-PART:';
+
+  Object.keys(part).forEach((key) => {
+    const attribute = toAttributeName(key);
+    const isQuoted = ['URI'].includes(attribute);
+
+    // byterange is stored as an object, emit it in the hls "length@offset" form
+    if (key === 'byterange') {
+      item += `,BYTERANGE="${part[key].length}@${part[key].offset}"`;
+      return;
+    }
+
+    item += `,${attribute}=${isQuoted ? '"' : ''}${part[key]}${isQuoted ? '"' : ''}`;
+  });
+
+  return item + '\n';
+}
+
+function stringifyPreloadHint(hint) {
+  let item = '#EXT-X-PRELOAD-HINT:';
+
+  Object.keys(hint).forEach((key) => {
+    const attribute = toAttributeName(key);
+    const value = hint[key];
+    const isQuoted = ['URI'].includes(attribute);
+
+    // byterange is stored as an object, emit its members as attributes
+    if (key === 'byterange') {
+      if (typeof value.length !== 'undefined') {
+        item += `,BYTERANGE-LENGTH=${value.length}`;
+      }
+      if (typeof value.offset !== 'undefined') {
+        item += `,BYTERANGE-START=${value.offset}`;
+      }
+      return;
+    }
+
+    item += `,${attribute}=${isQuoted ? '"' : ''}${value}${isQuoted ? '"' : ''}`;
+  });
+
+  return item + '\n';
+}
+
+function handleParts(parts) {
+  return parts.map(stringifyPart).join('');
+}
+
+function handlePreloadHints(preloadHints) {
+  return preloadHints.map(stringifyPreloadHint).join('');
+}
+
+function handleServerControl(serverControl) {
+  let item = '#EXT-X-SERVER-CONTROL:';
+
+  Object.keys(serverControl).forEach((key) => {
+    item += `,${toAttributeName(key)}=${serverControl[key]}`;
+  });
+
+  return item + '\n';
+}
+
+function handlePartInf(partInf) {
+  let item = '#EXT-X-PART-INF:';
+
+  Object.keys(partInf).forEach((key) => {
+    item += `,${toAttributeName(key)}=${partInf[key]}`;
+  });
+
+  return item + '\n';
+}
+
+function handleSkip(skip) {
+  let item = '#EXT-X-SKIP:';
+
+  Object.keys(skip).forEach((key) => {
+    const attribute = toAttributeName(key);
+    let value = skip[key];
+
+    // RECENTLY-REMOVED-DATERANGES is a tab separated list in a quoted-string
+    if (Array.isArray(value)) {
+      value = `"${value.join('\t')}"`;
+    }
+
+    item += `,${attribute}=${value}`;
+  });
+
+  return item + '\n';
+}
+
+function handleRenditionReports(renditionReports) {
+  let result = '';
+
+  renditionReports.forEach((report) => {
+    let item = '#EXT-X-RENDITION-REPORT:';
+
+    Object.keys(report).forEach((key) => {
+      const attribute = toAttributeName(key);
+      const isQuoted = ['URI'].includes(attribute);
+
+      item += `,${attribute}=${isQuoted ? '"' : ''}${report[key]}${isQuoted ? '"' : ''}`;
+    });
+
+    result += item + '\n';
+  });
+
+  return result;
+}
+
 function toHexString(uint32) {
   return uint32.reduce(
     (output, elem) => output + ('00000000' + elem.toString(16)).slice(-8),
@@ -279,6 +388,15 @@ function handleSegments(segments) {
       So, we cannot alter or parse decimal target duration to floating point
       because it might introduce version incompatibility
     */
+
+    // parts and preload hints of a segment appear before its EXTINF
+    if (segment.parts) {
+      segmentString += handleParts(segment.parts);
+    }
+
+    if (segment.preloadHints) {
+      segmentString += handlePreloadHints(segment.preloadHints);
+    }
 
     // FIXME: What about name after duration?
     segmentString += `#EXTINF:${segment.duration},\n`;
@@ -359,6 +477,21 @@ function stringifyTag(key, value) {
   } else if (key === 'dateRanges') {
     // handling date ranges seperately
     return handleDateRanges(value);
+  } else if (key === 'serverControl') {
+    // handling server control seperately
+    return handleServerControl(value);
+  } else if (key === 'partInf') {
+    // handling part inf seperately
+    return handlePartInf(value);
+  } else if (key === 'skip') {
+    // handling skip seperately
+    return handleSkip(value);
+  } else if (key === 'renditionReports') {
+    // handling rendition reports seperately
+    return handleRenditionReports(value);
+  } else if (key === 'preloadSegment') {
+    // trailing parts and hints of an in-progress segment, no EXTINF/uri of their own
+    return handleParts(value.parts || []) + handlePreloadHints(value.preloadHints || []);
   } else if (key === 'contentSteering') {
     // handling content steering seperately
     return handleContentSteering(value);
@@ -404,8 +537,11 @@ const tagsInOrder = [
   'playlists',
   'iFramePlaylists',
   'contentSteering',
+  'serverControl',
+  'partInf',
   'targetDuration',
   'mediaSequence',
+  'skip',
   'playlistType',
   'discontinuitySequence',
   'independentSegments',
@@ -413,6 +549,8 @@ const tagsInOrder = [
   'start',
   'dateRanges',
   'segments',
+  'preloadSegment',
+  'renditionReports',
   'endList'
 ];
 

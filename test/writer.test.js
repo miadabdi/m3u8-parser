@@ -273,3 +273,53 @@ QUnit.test('round-trips #EXT-X-CONTENT-STEERING', function(assert) {
     'content steering survives'
   );
 });
+
+QUnit.test('round-trips low latency tags', function(assert) {
+  const direct = parse(testDataManifests.llhls());
+  const manifest = roundTrip(testDataManifests.llhls());
+
+  assert.deepEqual(
+    manifest.serverControl,
+    direct.serverControl,
+    'server control survives'
+  );
+  assert.deepEqual(manifest.partInf, direct.partInf, 'part inf survives');
+  assert.deepEqual(
+    manifest.renditionReports,
+    direct.renditionReports,
+    'rendition reports survive'
+  );
+  assert.deepEqual(
+    manifest.segments.map((s) => s.parts || null),
+    direct.segments.map((s) => s.parts || null),
+    'segment parts survive'
+  );
+  assert.deepEqual(
+    manifest.preloadSegment,
+    direct.preloadSegment,
+    'preload segment (trailing parts + hints) survives'
+  );
+});
+
+QUnit.test('round-trips low latency byteranges', function(assert) {
+  const direct = parse(testDataManifests['llhls-byte-range']());
+  const manifest = roundTrip(testDataManifests['llhls-byte-range']());
+
+  assert.deepEqual(
+    manifest.segments.map((s) => s.parts || null),
+    direct.segments.map((s) => s.parts || null),
+    'part byteranges survive'
+  );
+  assert.deepEqual(
+    manifest.preloadSegment.preloadHints,
+    direct.preloadSegment.preloadHints,
+    'preload hint byteranges survive'
+  );
+});
+
+QUnit.test('round-trips #EXT-X-SKIP', function(assert) {
+  const direct = parse(testDataManifests.llhlsDelta());
+  const manifest = roundTrip(testDataManifests.llhlsDelta());
+
+  assert.deepEqual(manifest.skip, direct.skip, 'skip survives');
+});

@@ -170,8 +170,8 @@ const stringified = parser.stringify();
 The output starts with `#EXTM3U` and contains the tags the writer supports:
 
 * Basic: `EXT-X-VERSION`
-* Media segment: `EXTINF`, `EXT-X-BYTERANGE`, `EXT-X-DISCONTINUITY`, `EXT-X-KEY`, `EXT-X-MAP`, `EXT-X-PROGRAM-DATE-TIME`, `EXT-X-DATERANGE`
-* Media playlist: `EXT-X-TARGETDURATION`, `EXT-X-MEDIA-SEQUENCE`, `EXT-X-DISCONTINUITY-SEQUENCE`, `EXT-X-ENDLIST`, `EXT-X-PLAYLIST-TYPE`, `EXT-X-I-FRAMES-ONLY`, `EXT-X-INDEPENDENT-SEGMENTS`, `EXT-X-DEFINE`
+* Media segment: `EXTINF`, `EXT-X-BYTERANGE`, `EXT-X-DISCONTINUITY`, `EXT-X-KEY`, `EXT-X-MAP`, `EXT-X-PROGRAM-DATE-TIME`, `EXT-X-DATERANGE`, `EXT-X-PART`, `EXT-X-PRELOAD-HINT`
+* Media playlist: `EXT-X-TARGETDURATION`, `EXT-X-MEDIA-SEQUENCE`, `EXT-X-DISCONTINUITY-SEQUENCE`, `EXT-X-ENDLIST`, `EXT-X-PLAYLIST-TYPE`, `EXT-X-I-FRAMES-ONLY`, `EXT-X-INDEPENDENT-SEGMENTS`, `EXT-X-DEFINE`, `EXT-X-SERVER-CONTROL`, `EXT-X-PART-INF`, `EXT-X-SKIP`, `EXT-X-RENDITION-REPORT`
 * Main playlist: `EXT-X-MEDIA`, `EXT-X-STREAM-INF`, `EXT-X-I-FRAME-STREAM-INF`, `EXT-X-CONTENT-STEERING`
 
 Notes:
@@ -180,10 +180,9 @@ Notes:
 * `EXT-X-DEFINE` is always written back as `NAME`/`VALUE` pairs — `QUERYPARAM` and `IMPORT` definitions are resolved to plain values during parsing.
 * The deprecated `EXT-X-ALLOW-CACHE` is only written when caching is disallowed (`#EXT-X-ALLOW-CACHE:NO`); the default (allowed) emits nothing.
 * `EXT-X-DATERANGE`: `startDate`/`endDate` are written as ISO 8601 strings (they are `Date` objects in the manifest), durations as numbers, `endOnNext` as `YES`/`NO`, and `X-` prefixed client attributes are written as quoted strings.
+* Low latency: segment `parts` and `preloadHints` are written before their segment's `EXTINF`; a trailing in-progress segment (`manifest.preloadSegment`) is written as dangling `EXT-X-PART`/`EXT-X-PRELOAD-HINT` lines before the rendition reports. Parser-computed `SERVER-CONTROL` defaults (`holdBack`/`partHoldBack`) are materialized in the output.
 * `RESOLUTION` attributes are written in `WxH` form and `FRAME-RATE` is rounded to three decimal places.
 * Encryption for Widevine is not supported in stringifying.
-
-Any manifest field without a writer (for example low-latency tags like `EXT-X-PART`, `EXT-X-PRELOAD-HINT` or `EXT-X-SERVER-CONTROL`) is silently omitted from the output.
 
 ## Supported Tags
 

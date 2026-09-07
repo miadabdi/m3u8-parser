@@ -110,8 +110,11 @@ npm run test:node   # qunit on test/dist/bundle.js (after npm run build-test)
   Any attribute **value** containing the literal text `true`, `false` or `:,` gets
   mangled. Fixing this needs quote-aware emission; nobody has needed it yet.
 - Widevine key stringifying is not supported; `METHOD=NONE` transitions are.
-- Low-latency tags (`EXT-X-PART`, `EXT-X-PRELOAD-HINT`, `EXT-X-SERVER-CONTROL`, …)
-  are parsed but silently omitted from stringify output.
+- Low-latency tags ARE stringified (since 7.5.0): `SERVER-CONTROL`, `PART-INF`,
+  `PART`, `PRELOAD-HINT`, `SKIP`, `RENDITION-REPORT`, and trailing
+  `preloadSegment` parts/hints. `SERVER-CONTROL` output includes parser-computed
+  `holdBack`/`partHoldBack` defaults — emission order (serverControl/partInf before
+  targetDuration, in `tagsInOrder`) keeps the re-parse recomputation identical.
 
 ## Publishing
 
