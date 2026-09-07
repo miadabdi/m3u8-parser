@@ -204,7 +204,10 @@ function handleSegments(segments) {
     if (segment.map && !isEqual(segment.map, lastMap)) {
       // segment map exists and is not equel to last map
 
-      if (typeof segment.map.byterange.offset === 'undefined') {
+      if (
+        segment.map.byterange &&
+        typeof segment.map.byterange.offset === 'undefined'
+      ) {
         segment.map.byterange.offset = 0;
       }
 
@@ -285,7 +288,10 @@ function stringifyTag(key, value) {
   } else if (key === 'discontinuitySequence') {
     return `#EXT-X-DISCONTINUITY-SEQUENCE:${value}\n`;
   } else if (key === 'start') {
-    return `#EXT-X-START:TIME-OFFSET=${value.timeOffset},PRECISE=${value.precise}\n`;
+    // PRECISE is optional, don't emit "PRECISE=undefined" when absent
+    const precise = value.precise === undefined ? '' : `,PRECISE=${value.precise}`;
+
+    return `#EXT-X-START:TIME-OFFSET=${value.timeOffset}${precise}\n`;
   } else if (key === 'endList') {
     if (value) {
       return '#EXT-X-ENDLIST\n';
@@ -333,6 +339,7 @@ function isEmpty(element) {
 // #EXT-X-PROGRAM-DATE-TIME , #EXT-X-KEY , #EXT-X-MAP , #EXT-X-BYTERANGE and #EXT-X-DISCONTINUITY will be created in segments
 // below is equivalent in manifest object
 const tagsInOrder = [
+  'allowCache',
   'version',
   'definitions',
   'mediaGroups',
