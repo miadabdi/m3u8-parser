@@ -11,27 +11,27 @@ This is a fork (from [this repository](https://github.com/videojs/m3u8-parser)) 
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-- [m3u8-parser](#m3u8-parser)
-  - [Installation](#installation)
-  - [Usage](#usage)
-    - [Parsed Output](#parsed-output)
-    - [Stringify](#stringify)
-  - [Supported Tags](#supported-tags)
-    - [Basic Playlist Tags](#basic-playlist-tags)
-    - [Media Segment Tags](#media-segment-tags)
-    - [Media Playlist Tags](#media-playlist-tags)
-    - [Master Playlist Tags](#master-playlist-tags)
-    - [Experimental Tags](#experimental-tags)
-      - [EXT-X-CUE-OUT](#ext-x-cue-out)
-      - [EXT-X-CUE-OUT-CONT](#ext-x-cue-out-cont)
-      - [EXT-X-CUE-IN](#ext-x-cue-in)
-    - [Not Yet Supported](#not-yet-supported)
-    - [Custom Parsers](#custom-parsers)
-  - [Including the Parser](#including-the-parser)
-    - [`<script>` Tag](#script-tag)
-    - [Browserify](#browserify)
-    - [RequireJS/AMD](#requirejsamd)
-  - [License](#license)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Constructor Options](#constructor-options)
+  - [Parsed Output](#parsed-output)
+  - [Stringify](#stringify)
+- [Supported Tags](#supported-tags)
+  - [Basic Playlist Tags](#basic-playlist-tags)
+  - [Media Segment Tags](#media-segment-tags)
+  - [Media Playlist Tags](#media-playlist-tags)
+  - [Main Playlist Tags](#main-playlist-tags)
+  - [Experimental Tags](#experimental-tags)
+    - [EXT-X-CUE-OUT](#ext-x-cue-out)
+    - [EXT-X-CUE-OUT-CONT](#ext-x-cue-out-cont)
+    - [EXT-X-CUE-IN](#ext-x-cue-in)
+  - [Not Yet Supported](#not-yet-supported)
+  - [Custom Parsers](#custom-parsers)
+- [Including the Parser](#including-the-parser)
+  - [`<script>` Tag](#script-tag)
+  - [Browserify](#browserify)
+  - [RequireJS/AMD](#requirejsamd)
+- [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -67,6 +67,21 @@ parser.end();
 
 var parsedManifest = parser.manifest;
 ```
+### Constructor Options
+
+The constructor optinally takes an options object with two properties. These are needed when using `#EXT-X-DEFINE` for variable replacement.
+
+```js
+var parser = new m3u8Parser.Parser({
+  url: 'https://exmaple.com/video.m3u8?param_a=34&param_b=abc',
+  mainDefinitions: {
+    param_c: 'def'
+  }
+});
+```
+
+* `options.url` _string_ The URL from which the playlist was fetched. If the request was redirected this should be the final URL. This is required if using `QUERYSTRING` rules with `#EXT-X-DEFINE`.
+* `options.mainDefinitions` _object_ An object of definitions from the main playlist. This is required if using `IMPORT` rules with `#EXT-X-DEFINE`.
 
 ### Parsed Output
 
@@ -170,6 +185,7 @@ const stringified = parser.stringify();
 * [EXT-X-MAP](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.2.5)
 * [EXT-X-PROGRAM-DATE-TIME](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.2.6)
 * [EXT-X-DATERANGE](https://datatracker.ietf.org/doc/html/draft-pantos-http-live-streaming-23#section-4.3.2.7)
+* [EXT-X-I-FRAMES-ONLY](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.3.6)
 
 ### Media Playlist Tags
 
@@ -180,12 +196,15 @@ const stringified = parser.stringify();
 * [EXT-X-PLAYLIST-TYPE](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.3.5)
 * [EXT-X-START](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.5.2)
 * [EXT-X-INDEPENDENT-SEGMENTS](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.5.1)
+* [EXT-X-DEFINE](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis#section-4.4.2.3)
 
-### Master Playlist Tags
+### Main Playlist Tags
 
 * [EXT-X-MEDIA](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.4.1)
 * [EXT-X-STREAM-INF](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.4.2)
+* [EXT-X-I-FRAME-STREAM-INF](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.4.3)
 * [EXT-X-CONTENT-STEERING](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis#section-4.4.6.6)
+* [EXT-X-DEFINE](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis#section-4.4.2.3)
 
 ### Experimental Tags
 
@@ -250,8 +269,6 @@ Example media playlist using `EXT-X-CUE-` tags.
 
 ### Not Yet Supported
 
-* [EXT-X-I-FRAMES-ONLY](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.3.6)
-* [EXT-X-I-FRAME-STREAM-INF](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.4.3)
 * [EXT-X-SESSION-DATA](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.4.4)
 * [EXT-X-SESSION-KEY](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.4.5)
 

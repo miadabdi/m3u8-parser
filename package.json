@@ -1,6 +1,6 @@
 {
   "name": "@miadabdi/m3u8-parser",
-  "version": "7.1.1",
+  "version": "7.2.1",
   "description": "m3u8 parser",
   "main": "dist/m3u8-parser.cjs.js",
   "module": "dist/m3u8-parser.es.js",
@@ -69,7 +69,7 @@
   ],
   "dependencies": {
     "@babel/runtime": "^7.12.5",
-    "@videojs/vhs-utils": "^3.0.5",
+    "@videojs/vhs-utils": "^4.1.1",
     "global": "^4.4.0",
     "lodash": "^4.17.21"
   },

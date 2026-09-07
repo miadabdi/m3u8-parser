@@ -1,11 +1,11 @@
 /**
  * @file m3u8/parser.js
  */
-import decodeB64ToUint8Array from "@videojs/vhs-utils/es/decode-b64-to-uint8-array.js";
-import Stream from "@videojs/vhs-utils/es/stream.js";
-import LineStream from "./line-stream";
-import ParseStream from "./parse-stream";
-import Writer from "./writer";
+import decodeB64ToUint8Array from '@videojs/vhs-utils/es/decode-b64-to-uint8-array.js';
+import Stream from '@videojs/vhs-utils/es/stream.js';
+import LineStream from './line-stream';
+import ParseStream from './parse-stream';
+import Writer from './writer';
 
 // const camelCase = (str) =>
 //   str.toLowerCase().replace(/-(\w)/g, (a) => a[1].toUpperCase());
@@ -72,10 +72,10 @@ import Writer from "./writer";
 const camelCase = (str) =>
   str.toLowerCase().replace(/-(\w)/g, (a) => a[1].toUpperCase());
 
-const camelCaseKeys = function (attributes) {
+const camelCaseKeys = function(attributes) {
   const result = {};
 
-  Object.keys(attributes).forEach(function (key) {
+  Object.keys(attributes).forEach(function(key) {
     result[camelCase(key)] = attributes[key];
   });
 
@@ -86,29 +86,29 @@ const camelCaseKeys = function (attributes) {
 // we need this helper because defaults are based upon targetDuration and
 // partTargetDuration being set, but they may not be if SERVER-CONTROL appears before
 // target durations are set.
-const setHoldBack = function (manifest) {
+const setHoldBack = function(manifest) {
   const { serverControl, targetDuration, partTargetDuration } = manifest;
 
   if (!serverControl) {
     return;
   }
 
-  const tag = "#EXT-X-SERVER-CONTROL";
-  const hb = "holdBack";
-  const phb = "partHoldBack";
+  const tag = '#EXT-X-SERVER-CONTROL';
+  const hb = 'holdBack';
+  const phb = 'partHoldBack';
   const minTargetDuration = targetDuration && targetDuration * 3;
   const minPartDuration = partTargetDuration && partTargetDuration * 2;
 
   if (targetDuration && !serverControl.hasOwnProperty(hb)) {
     serverControl[hb] = minTargetDuration;
-    this.trigger("info", {
-      message: `${tag} defaulting HOLD-BACK to targetDuration * 3 (${minTargetDuration}).`,
+    this.trigger('info', {
+      message: `${tag} defaulting HOLD-BACK to targetDuration * 3 (${minTargetDuration}).`
     });
   }
 
   if (minTargetDuration && serverControl[hb] < minTargetDuration) {
-    this.trigger("warn", {
-      message: `${tag} clamping HOLD-BACK (${serverControl[hb]}) to targetDuration * 3 (${minTargetDuration})`,
+    this.trigger('warn', {
+      message: `${tag} clamping HOLD-BACK (${serverControl[hb]}) to targetDuration * 3 (${minTargetDuration})`
     });
     serverControl[hb] = minTargetDuration;
   }
@@ -116,15 +116,15 @@ const setHoldBack = function (manifest) {
   // default no part hold back to part target duration * 3
   if (partTargetDuration && !serverControl.hasOwnProperty(phb)) {
     serverControl[phb] = partTargetDuration * 3;
-    this.trigger("info", {
-      message: `${tag} defaulting PART-HOLD-BACK to partTargetDuration * 3 (${serverControl[phb]}).`,
+    this.trigger('info', {
+      message: `${tag} defaulting PART-HOLD-BACK to partTargetDuration * 3 (${serverControl[phb]}).`
     });
   }
 
   // if part hold back is too small default it to part target duration * 2
   if (partTargetDuration && serverControl[phb] < minPartDuration) {
-    this.trigger("warn", {
-      message: `${tag} clamping PART-HOLD-BACK (${serverControl[phb]}) to partTargetDuration * 2 (${minPartDuration}).`,
+    this.trigger('warn', {
+      message: `${tag} clamping PART-HOLD-BACK (${serverControl[phb]}) to partTargetDuration * 2 (${minPartDuration}).`
     });
 
     serverControl[phb] = minPartDuration;
@@ -150,15 +150,19 @@ const setHoldBack = function (manifest) {
  * requires some property of the manifest object to be defaulted.
  *
  * @class Parser
+ * @param {Object} [opts] Options for the constructor, needed for substitutions
+ * @param {string} [opts.uri] URL to check for query params
+ * @param {Object} [opts.mainDefinitions] Definitions on main playlist that can be imported
  * @extends Stream
  */
 export default class Parser extends Stream {
-  constructor() {
+  constructor(opts = {}) {
     super();
     this.lineStream = new LineStream();
     this.parseStream = new ParseStream();
     this.lineStream.pipe(this.parseStream);
-
+    this.mainDefinitions = opts.mainDefinitions || {};
+    this.params = new URL(opts.uri, 'https://a.com').searchParams;
     this.lastProgramDateTime = null;
 
     /* eslint-disable consistent-this */
@@ -171,16 +175,16 @@ export default class Parser extends Stream {
     // if specified, the active decryption key
     let key;
     let hasParts = false;
-    const noop = function () {};
+    const noop = function() {};
     const defaultMediaGroups = {
-      AUDIO: {},
-      VIDEO: {},
-      "CLOSED-CAPTIONS": {},
-      SUBTITLES: {},
+      'AUDIO': {},
+      'VIDEO': {},
+      'CLOSED-CAPTIONS': {},
+      'SUBTITLES': {}
     };
     // This is the Widevine UUID from DASH IF IOP. The same exact string is
     // used in MPDs with Widevine encrypted streams.
-    const widevineUuid = "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+    const widevineUuid = 'urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed';
     // group segments into numbered timelines delineated by discontinuities
     let currentTimeline = 0;
 
@@ -189,7 +193,8 @@ export default class Parser extends Stream {
       allowCache: true,
       discontinuityStarts: [],
       dateRanges: [],
-      segments: [],
+      iFramePlaylists: [],
+      segments: []
     };
     // keep track of the last seen segment's byte range end, as segments are not required
     // to provide the offset, in which case it defaults to the next byte after the
@@ -199,7 +204,7 @@ export default class Parser extends Stream {
     let lastPartByterangeEnd = 0;
     const dateRangeTags = {};
 
-    this.on("end", () => {
+    this.on('end', () => {
       // only add preloadSegment if we don't yet have a uri for it.
       // and we actually have parts/preloadHints
       if (currentUri.uri || (!currentUri.parts && !currentUri.preloadHints)) {
@@ -213,7 +218,7 @@ export default class Parser extends Stream {
         currentUri.key = key;
       }
 
-      if (!currentUri.timeline && typeof currentTimeline === "number") {
+      if (!currentUri.timeline && typeof currentTimeline === 'number') {
         currentUri.timeline = currentTimeline;
       }
 
@@ -221,9 +226,25 @@ export default class Parser extends Stream {
     });
 
     // update the manifest with the m3u8 entry from the parse stream
-    this.parseStream.on("data", function (entry) {
+    this.parseStream.on('data', function(entry) {
       let mediaGroup;
       let rendition;
+
+      // Replace variables in uris and attributes as defined in #EXT-X-DEFINE tags
+      if (self.manifest.definitions) {
+        for (const def in self.manifest.definitions) {
+          if (entry.uri) {
+            entry.uri = entry.uri.replace(`{$${def}}`, self.manifest.definitions[def]);
+          }
+          if (entry.attributes) {
+            for (const attr in entry.attributes) {
+              if (typeof entry.attributes[attr] === 'string') {
+                entry.attributes[attr] = entry.attributes[attr].replace(`{$${def}}`, self.manifest.definitions[def]);
+              }
+            }
+          }
+        }
+      }
 
       ({
         tag() {
@@ -235,11 +256,11 @@ export default class Parser extends Stream {
                   this.manifest.version = entry.version;
                 }
               },
-              "allow-cache"() {
+              'allow-cache'() {
                 this.manifest.allowCache = entry.allowed;
-                if (!("allowed" in entry)) {
-                  this.trigger("info", {
-                    message: "defaulting allowCache to YES",
+                if (!('allowed' in entry)) {
+                  this.trigger('info', {
+                    message: 'defaulting allowCache to YES'
                   });
                   this.manifest.allowCache = true;
                 }
@@ -247,11 +268,11 @@ export default class Parser extends Stream {
               byterange() {
                 const byterange = {};
 
-                if ("length" in entry) {
+                if ('length' in entry) {
                   currentUri.byterange = byterange;
                   byterange.length = entry.length;
 
-                  if (!("offset" in entry)) {
+                  if (!('offset' in entry)) {
                     /*
                      * From the latest spec (as of this writing):
                      * https://tools.ietf.org/html/draft-pantos-http-live-streaming-23#section-4.3.2.2
@@ -265,7 +286,7 @@ export default class Parser extends Stream {
                     entry.offset = lastByterangeEnd;
                   }
                 }
-                if ("offset" in entry) {
+                if ('offset' in entry) {
                   currentUri.byterange = byterange;
                   byterange.offset = entry.offset;
                 }
@@ -274,20 +295,20 @@ export default class Parser extends Stream {
               endlist() {
                 this.manifest.endList = true;
               },
-              "independent-segments"() {
+              'independent-segments'() {
                 this.manifest.independentSegments = true;
               },
               inf() {
-                if (!("mediaSequence" in this.manifest)) {
+                if (!('mediaSequence' in this.manifest)) {
                   this.manifest.mediaSequence = 0;
-                  this.trigger("info", {
-                    message: "defaulting media sequence to zero",
+                  this.trigger('info', {
+                    message: 'defaulting media sequence to zero'
                   });
                 }
-                if (!("discontinuitySequence" in this.manifest)) {
+                if (!('discontinuitySequence' in this.manifest)) {
                   this.manifest.discontinuitySequence = 0;
-                  this.trigger("info", {
-                    message: "defaulting discontinuity sequence to zero",
+                  this.trigger('info', {
+                    message: 'defaulting discontinuity sequence to zero'
                   });
                 }
 
@@ -301,8 +322,8 @@ export default class Parser extends Stream {
 
                 if (entry.duration === 0) {
                   currentUri.duration = 0.01;
-                  this.trigger("info", {
-                    message: "updating zero segment duration to a small value",
+                  this.trigger('info', {
+                    message: 'updating zero segment duration to a small value'
                   });
                 }
 
@@ -310,45 +331,45 @@ export default class Parser extends Stream {
               },
               key() {
                 if (!entry.attributes) {
-                  this.trigger("warn", {
-                    message: "ignoring key declaration without attribute list",
+                  this.trigger('warn', {
+                    message: 'ignoring key declaration without attribute list'
                   });
                   return;
                 }
                 // clear the active encryption key
-                if (entry.attributes.METHOD === "NONE") {
+                if (entry.attributes.METHOD === 'NONE') {
                   key = null;
                   return;
                 }
                 if (!entry.attributes.URI) {
-                  this.trigger("warn", {
-                    message: "ignoring key declaration without URI",
+                  this.trigger('warn', {
+                    message: 'ignoring key declaration without URI'
                   });
                   return;
                 }
 
                 if (
                   entry.attributes.KEYFORMAT ===
-                  "com.apple.streamingkeydelivery"
+                  'com.apple.streamingkeydelivery'
                 ) {
                   this.manifest.contentProtection =
                     this.manifest.contentProtection || {};
 
                   // TODO: add full support for this.
-                  this.manifest.contentProtection["com.apple.fps.1_0"] = {
-                    attributes: entry.attributes,
+                  this.manifest.contentProtection['com.apple.fps.1_0'] = {
+                    attributes: entry.attributes
                   };
 
                   return;
                 }
 
-                if (entry.attributes.KEYFORMAT === "com.microsoft.playready") {
+                if (entry.attributes.KEYFORMAT === 'com.microsoft.playready') {
                   this.manifest.contentProtection =
                     this.manifest.contentProtection || {};
 
                   // TODO: add full support for this.
-                  this.manifest.contentProtection["com.microsoft.playready"] = {
-                    uri: entry.attributes.URI,
+                  this.manifest.contentProtection['com.microsoft.playready'] = {
+                    uri: entry.attributes.URI
                   };
 
                   return;
@@ -358,31 +379,31 @@ export default class Parser extends Stream {
                 // Widevine/HLS spec: https://storage.googleapis.com/wvdocs/Widevine_DRM_HLS.pdf
                 if (entry.attributes.KEYFORMAT === widevineUuid) {
                   const VALID_METHODS = [
-                    "SAMPLE-AES",
-                    "SAMPLE-AES-CTR",
-                    "SAMPLE-AES-CENC",
+                    'SAMPLE-AES',
+                    'SAMPLE-AES-CTR',
+                    'SAMPLE-AES-CENC'
                   ];
 
                   if (VALID_METHODS.indexOf(entry.attributes.METHOD) === -1) {
-                    this.trigger("warn", {
-                      message: "invalid key method provided for Widevine",
+                    this.trigger('warn', {
+                      message: 'invalid key method provided for Widevine'
                     });
                     return;
                   }
 
-                  if (entry.attributes.METHOD === "SAMPLE-AES-CENC") {
-                    this.trigger("warn", {
+                  if (entry.attributes.METHOD === 'SAMPLE-AES-CENC') {
+                    this.trigger('warn', {
                       message:
-                        "SAMPLE-AES-CENC is deprecated, please use SAMPLE-AES-CTR instead",
+                        'SAMPLE-AES-CENC is deprecated, please use SAMPLE-AES-CTR instead'
                     });
                   }
 
                   if (
                     entry.attributes.URI.substring(0, 23) !==
-                    "data:text/plain;base64,"
+                    'data:text/plain;base64,'
                   ) {
-                    this.trigger("warn", {
-                      message: "invalid key URI provided for Widevine",
+                    this.trigger('warn', {
+                      message: 'invalid key URI provided for Widevine'
                     });
                     return;
                   }
@@ -390,11 +411,11 @@ export default class Parser extends Stream {
                   if (
                     !(
                       entry.attributes.KEYID &&
-                      entry.attributes.KEYID.substring(0, 2) === "0x"
+                      entry.attributes.KEYID.substring(0, 2) === '0x'
                     )
                   ) {
-                    this.trigger("warn", {
-                      message: "invalid key ID provided for Widevine",
+                    this.trigger('warn', {
+                      message: 'invalid key ID provided for Widevine'
                     });
                     return;
                   }
@@ -403,62 +424,60 @@ export default class Parser extends Stream {
                   // on the manifest to emulate Widevine tag structure in a DASH mpd
                   this.manifest.contentProtection =
                     this.manifest.contentProtection || {};
-                  this.manifest.contentProtection["com.widevine.alpha"] = {
+                  this.manifest.contentProtection['com.widevine.alpha'] = {
                     attributes: {
                       schemeIdUri: entry.attributes.KEYFORMAT,
                       // remove '0x' from the key id string
-                      keyId: entry.attributes.KEYID.substring(2),
+                      keyId: entry.attributes.KEYID.substring(2)
                     },
                     // decode the base64-encoded PSSH box
-                    pssh: decodeB64ToUint8Array(
-                      entry.attributes.URI.split(",")[1]
-                    ),
+                    pssh: decodeB64ToUint8Array(entry.attributes.URI.split(',')[1])
                   };
                   return;
                 }
 
                 if (!entry.attributes.METHOD) {
-                  this.trigger("warn", {
-                    message: "defaulting key method to AES-128",
+                  this.trigger('warn', {
+                    message: 'defaulting key method to AES-128'
                   });
                 }
 
                 // setup an encryption key for upcoming segments
                 key = {
-                  method: entry.attributes.METHOD || "AES-128",
-                  uri: entry.attributes.URI,
+                  method: entry.attributes.METHOD || 'AES-128',
+                  uri: entry.attributes.URI
                 };
 
-                if (typeof entry.attributes.IV !== "undefined") {
+                if (typeof entry.attributes.IV !== 'undefined') {
                   key.iv = entry.attributes.IV;
                 }
               },
-              "media-sequence"() {
+              'media-sequence'() {
                 if (!isFinite(entry.number)) {
-                  this.trigger("warn", {
-                    message: "ignoring invalid media sequence: " + entry.number,
+                  this.trigger('warn', {
+                    message: 'ignoring invalid media sequence: ' + entry.number
                   });
                   return;
                 }
                 this.manifest.mediaSequence = entry.number;
               },
-              "discontinuity-sequence"() {
+              'discontinuity-sequence'() {
                 if (!isFinite(entry.number)) {
-                  this.trigger("warn", {
+                  this.trigger('warn', {
                     message:
-                      "ignoring invalid discontinuity sequence: " +
-                      entry.number,
+                      'ignoring invalid discontinuity sequence: ' +
+                      entry.number
                   });
                   return;
                 }
                 this.manifest.discontinuitySequence = entry.number;
                 currentTimeline = entry.number;
               },
-              "playlist-type"() {
+              'playlist-type'() {
                 if (!/VOD|EVENT/.test(entry.playlistType)) {
-                  this.trigger("warn", {
+                  this.trigger('warn', {
                     message:
-                      "ignoring unknown playlist type: " + entry.playlist,
+                      'ignoring unknown playlist type: ' + entry.playlist
                   });
                   return;
                 }
@@ -477,14 +496,14 @@ export default class Parser extends Stream {
                   currentMap.key = key;
                 }
               },
-              "stream-inf"() {
+              'stream-inf'() {
                 this.manifest.playlists = uris;
                 this.manifest.mediaGroups =
                   this.manifest.mediaGroups || defaultMediaGroups;
 
                 if (!entry.attributes) {
-                  this.trigger("warn", {
-                    message: "ignoring empty stream-inf attributes",
+                  this.trigger('warn', {
+                    message: 'ignoring empty stream-inf attributes'
                   });
                   return;
                 }
@@ -502,12 +521,12 @@ export default class Parser extends Stream {
                   !(
                     entry.attributes &&
                     entry.attributes.TYPE &&
-                    entry.attributes["GROUP-ID"] &&
+                    entry.attributes['GROUP-ID'] &&
                     entry.attributes.NAME
                   )
                 ) {
-                  this.trigger("warn", {
-                    message: "ignoring incomplete or missing media group",
+                  this.trigger('warn', {
+                    message: 'ignoring incomplete or missing media group'
                   });
                   return;
                 }
@@ -516,20 +535,18 @@ export default class Parser extends Stream {
                 const mediaGroupType =
                   this.manifest.mediaGroups[entry.attributes.TYPE];
 
-                mediaGroupType[entry.attributes["GROUP-ID"]] =
-                  mediaGroupType[entry.attributes["GROUP-ID"]] || {};
-                mediaGroup = mediaGroupType[entry.attributes["GROUP-ID"]];
+                mediaGroupType[entry.attributes['GROUP-ID']] =
+                  mediaGroupType[entry.attributes['GROUP-ID']] || {};
+                mediaGroup = mediaGroupType[entry.attributes['GROUP-ID']];
 
                 // collect the rendition metadata
                 rendition = {
-                  default: /yes/i.test(entry.attributes.DEFAULT),
+                  default: /yes/i.test(entry.attributes.DEFAULT)
                 };
                 if (rendition.default) {
                   rendition.autoselect = true;
                 } else {
-                  rendition.autoselect = /yes/i.test(
-                    entry.attributes.AUTOSELECT
-                  );
+                  rendition.autoselect = /yes/i.test(entry.attributes.AUTOSELECT);
                 }
                 if (entry.attributes.LANGUAGE) {
                   rendition.language = entry.attributes.LANGUAGE;
@@ -537,8 +554,8 @@ export default class Parser extends Stream {
                 if (entry.attributes.URI) {
                   rendition.uri = entry.attributes.URI;
                 }
-                if (entry.attributes["INSTREAM-ID"]) {
-                  rendition.instreamId = entry.attributes["INSTREAM-ID"];
+                if (entry.attributes['INSTREAM-ID']) {
+                  rendition.instreamId = entry.attributes['INSTREAM-ID'];
                 }
                 if (entry.attributes.CHARACTERISTICS) {
                   rendition.characteristics = entry.attributes.CHARACTERISTICS;
@@ -555,8 +572,8 @@ export default class Parser extends Stream {
                 currentUri.discontinuity = true;
                 this.manifest.discontinuityStarts.push(uris.length);
               },
-              "program-date-time"() {
-                if (typeof this.manifest.dateTimeString === "undefined") {
+              'program-date-time'() {
+                if (typeof this.manifest.dateTimeString === 'undefined') {
                   // PROGRAM-DATE-TIME is a media-segment tag, but for backwards
                   // compatibility, we add the first occurence of the PROGRAM-DATE-TIME tag
                   // to the manifest object
@@ -569,9 +586,7 @@ export default class Parser extends Stream {
 
                 const { lastProgramDateTime } = this;
 
-                this.lastProgramDateTime = new Date(
-                  entry.dateTimeString
-                ).getTime();
+                this.lastProgramDateTime = new Date(entry.dateTimeString).getTime();
 
                 // We should extrapolate Program Date Time backward only during first program date time occurrence.
                 // Once we have at least one program date time point, we can always extrapolate it forward using lastProgramDateTime reference.
@@ -591,9 +606,9 @@ export default class Parser extends Stream {
               },
               targetduration() {
                 if (!isFinite(entry.duration) || entry.duration < 0) {
-                  this.trigger("warn", {
+                  this.trigger('warn', {
                     message:
-                      "ignoring invalid target duration: " + entry.duration,
+                      'ignoring invalid target duration: ' + entry.duration
                   });
                   return;
                 }
@@ -604,33 +619,33 @@ export default class Parser extends Stream {
               start() {
                 if (
                   !entry.attributes ||
-                  isNaN(entry.attributes["TIME-OFFSET"])
+                  isNaN(entry.attributes['TIME-OFFSET'])
                 ) {
-                  this.trigger("warn", {
+                  this.trigger('warn', {
                     message:
-                      "ignoring start declaration without appropriate attribute list",
+                      'ignoring start declaration without appropriate attribute list'
                   });
                   return;
                 }
                 this.manifest.start = {
-                  timeOffset: entry.attributes["TIME-OFFSET"],
-                  precise: entry.attributes.PRECISE,
+                  timeOffset: entry.attributes['TIME-OFFSET'],
+                  precise: entry.attributes.PRECISE
                 };
               },
-              "cue-out"() {
+              'cue-out'() {
                 currentUri.cueOut = entry.data;
               },
-              "cue-out-cont"() {
+              'cue-out-cont'() {
                 currentUri.cueOutCont = entry.data;
               },
-              "cue-in"() {
+              'cue-in'() {
                 currentUri.cueIn = entry.data;
               },
               skip() {
                 this.manifest.skip = camelCaseKeys(entry.attributes);
 
-                this.warnOnMissingAttributes_("#EXT-X-SKIP", entry.attributes, [
-                  "SKIPPED-SEGMENTS",
+                this.warnOnMissingAttributes_('#EXT-X-SKIP', entry.attributes, [
+                  'SKIPPED-SEGMENTS'
                 ]);
               },
               part() {
@@ -643,7 +658,7 @@ export default class Parser extends Stream {
                 currentUri.parts.push(part);
 
                 if (part.byterange) {
-                  if (!part.byterange.hasOwnProperty("offset")) {
+                  if (!part.byterange.hasOwnProperty('offset')) {
                     part.byterange.offset = lastPartByterangeEnd;
                   }
                   lastPartByterangeEnd =
@@ -655,54 +670,52 @@ export default class Parser extends Stream {
                 this.warnOnMissingAttributes_(
                   `#EXT-X-PART #${partIndex} for segment #${segmentIndex}`,
                   entry.attributes,
-                  ["URI", "DURATION"]
+                  ['URI', 'DURATION']
                 );
 
                 if (this.manifest.renditionReports) {
                   this.manifest.renditionReports.forEach((r, i) => {
-                    if (!r.hasOwnProperty("lastPart")) {
-                      this.trigger("warn", {
-                        message: `#EXT-X-RENDITION-REPORT #${i} lacks required attribute(s): LAST-PART`,
+                    if (!r.hasOwnProperty('lastPart')) {
+                      this.trigger('warn', {
+                        message: `#EXT-X-RENDITION-REPORT #${i} lacks required attribute(s): LAST-PART`
                       });
                     }
                   });
                 }
               },
-              "server-control"() {
-                const attrs = (this.manifest.serverControl = camelCaseKeys(
-                  entry.attributes
-                ));
+              'server-control'() {
+                const attrs = (this.manifest.serverControl = camelCaseKeys(entry.attributes));
 
-                if (!attrs.hasOwnProperty("canBlockReload")) {
+                if (!attrs.hasOwnProperty('canBlockReload')) {
                   attrs.canBlockReload = false;
-                  this.trigger("info", {
+                  this.trigger('info', {
                     message:
-                      "#EXT-X-SERVER-CONTROL defaulting CAN-BLOCK-RELOAD to false",
+                      '#EXT-X-SERVER-CONTROL defaulting CAN-BLOCK-RELOAD to false'
                   });
                 }
                 setHoldBack.call(this, this.manifest);
 
                 if (
                   attrs.canSkipDateranges &&
-                  !attrs.hasOwnProperty("canSkipUntil")
+                  !attrs.hasOwnProperty('canSkipUntil')
                 ) {
-                  this.trigger("warn", {
+                  this.trigger('warn', {
                     message:
-                      "#EXT-X-SERVER-CONTROL lacks required attribute CAN-SKIP-UNTIL which is required when CAN-SKIP-DATERANGES is set",
+                      '#EXT-X-SERVER-CONTROL lacks required attribute CAN-SKIP-UNTIL which is required when CAN-SKIP-DATERANGES is set'
                   });
                 }
               },
-              "preload-hint"() {
+              'preload-hint'() {
                 // parts are always specifed before a segment
                 const segmentIndex = this.manifest.segments.length;
                 const hint = camelCaseKeys(entry.attributes);
-                const isPart = hint.type && hint.type === "PART";
+                const isPart = hint.type && hint.type === 'PART';
 
                 currentUri.preloadHints = currentUri.preloadHints || [];
                 currentUri.preloadHints.push(hint);
 
                 if (hint.byterange) {
-                  if (!hint.byterange.hasOwnProperty("offset")) {
+                  if (!hint.byterange.hasOwnProperty('offset')) {
                     // use last part byterange end or zero if not a part.
                     hint.byterange.offset = isPart ? lastPartByterangeEnd : 0;
                     if (isPart) {
@@ -716,7 +729,7 @@ export default class Parser extends Stream {
                 this.warnOnMissingAttributes_(
                   `#EXT-X-PRELOAD-HINT #${index} for segment #${segmentIndex}`,
                   entry.attributes,
-                  ["TYPE", "URI"]
+                  ['TYPE', 'URI']
                 );
 
                 if (!hint.type) {
@@ -732,23 +745,23 @@ export default class Parser extends Stream {
                   }
 
                   if (otherHint.type === hint.type) {
-                    this.trigger("warn", {
-                      message: `#EXT-X-PRELOAD-HINT #${index} for segment #${segmentIndex} has the same TYPE ${hint.type} as preload hint #${i}`,
+                    this.trigger('warn', {
+                      message: `#EXT-X-PRELOAD-HINT #${index} for segment #${segmentIndex} has the same TYPE ${hint.type} as preload hint #${i}`
                     });
                   }
                 }
               },
-              "rendition-report"() {
+              'rendition-report'() {
                 const report = camelCaseKeys(entry.attributes);
 
                 this.manifest.renditionReports =
                   this.manifest.renditionReports || [];
                 this.manifest.renditionReports.push(report);
                 const index = this.manifest.renditionReports.length - 1;
-                const required = ["LAST-MSN", "URI"];
+                const required = ['LAST-MSN', 'URI'];
 
                 if (hasParts) {
-                  required.push("LAST-PART");
+                  required.push('LAST-PART');
                 }
 
                 this.warnOnMissingAttributes_(
@@ -757,13 +770,13 @@ export default class Parser extends Stream {
                   required
                 );
               },
-              "part-inf"() {
+              'part-inf'() {
                 this.manifest.partInf = camelCaseKeys(entry.attributes);
 
                 this.warnOnMissingAttributes_(
-                  "#EXT-X-PART-INF",
+                  '#EXT-X-PART-INF',
                   entry.attributes,
-                  ["PART-TARGET"]
+                  ['PART-TARGET']
                 );
                 if (this.manifest.partInf.partTarget) {
                   this.manifest.partTargetDuration =
@@ -779,7 +792,7 @@ export default class Parser extends Stream {
                 this.warnOnMissingAttributes_(
                   `#EXT-X-DATERANGE #${index}`,
                   entry.attributes,
-                  ["ID", "START-DATE"]
+                  ['ID', 'START-DATE']
                 );
                 const dateRange = this.manifest.dateRanges[index];
 
@@ -788,37 +801,37 @@ export default class Parser extends Stream {
                   dateRange.startDate &&
                   new Date(dateRange.endDate) < new Date(dateRange.startDate)
                 ) {
-                  this.trigger("warn", {
+                  this.trigger('warn', {
                     message:
-                      "EXT-X-DATERANGE END-DATE must be equal to or later than the value of the START-DATE",
+                      'EXT-X-DATERANGE END-DATE must be equal to or later than the value of the START-DATE'
                   });
                 }
                 if (dateRange.duration && dateRange.duration < 0) {
-                  this.trigger("warn", {
-                    message: "EXT-X-DATERANGE DURATION must not be negative",
+                  this.trigger('warn', {
+                    message: 'EXT-X-DATERANGE DURATION must not be negative'
                   });
                 }
                 if (
                   dateRange.plannedDuration &&
                   dateRange.plannedDuration < 0
                 ) {
-                  this.trigger("warn", {
+                  this.trigger('warn', {
                     message:
-                      "EXT-X-DATERANGE PLANNED-DURATION must not be negative",
+                      'EXT-X-DATERANGE PLANNED-DURATION must not be negative'
                   });
                 }
                 const endOnNextYes = !!dateRange.endOnNext;
 
                 if (endOnNextYes && !dateRange.class) {
-                  this.trigger("warn", {
+                  this.trigger('warn', {
                     message:
-                      "EXT-X-DATERANGE with an END-ON-NEXT=YES attribute must have a CLASS attribute",
+                      'EXT-X-DATERANGE with an END-ON-NEXT=YES attribute must have a CLASS attribute'
                   });
                 }
                 if (endOnNextYes && (dateRange.duration || dateRange.endDate)) {
-                  this.trigger("warn", {
+                  this.trigger('warn', {
                     message:
-                      "EXT-X-DATERANGE with an END-ON-NEXT=YES attribute must not contain DURATION or END-DATE attributes",
+                      'EXT-X-DATERANGE with an END-ON-NEXT=YES attribute must not contain DURATION or END-DATE attributes'
                   });
                 }
                 if (dateRange.duration && dateRange.endDate) {
@@ -826,9 +839,7 @@ export default class Parser extends Stream {
                   const newDateInSeconds =
                     startDate.getTime() + dateRange.duration * 1000;
 
-                  this.manifest.dateRanges[index].endDate = new Date(
-                    newDateInSeconds
-                  );
+                  this.manifest.dateRanges[index].endDate = new Date(newDateInSeconds);
                 }
                 if (!dateRangeTags[dateRange.id]) {
                   dateRangeTags[dateRange.id] = dateRange;
@@ -839,18 +850,16 @@ export default class Parser extends Stream {
                       JSON.stringify(dateRangeTags[dateRange.id][attribute]) !==
                         JSON.stringify(dateRange[attribute])
                     ) {
-                      this.trigger("warn", {
+                      this.trigger('warn', {
                         message:
-                          "EXT-X-DATERANGE tags with the same ID in a playlist must have the same attributes values",
+                          'EXT-X-DATERANGE tags with the same ID in a playlist must have the same attributes values'
                       });
                       break;
                     }
                   }
                   // if tags with the same ID do not have conflicting attributes, merge them
                   const dateRangeWithSameId =
-                    this.manifest.dateRanges.findIndex(
-                      (dateRangeToFind) => dateRangeToFind.id === dateRange.id
-                    );
+                    this.manifest.dateRanges.findIndex((dateRangeToFind) => dateRangeToFind.id === dateRange.id);
 
                   this.manifest.dateRanges[dateRangeWithSameId] = Object.assign(
                     this.manifest.dateRanges[dateRangeWithSameId],
@@ -864,17 +873,131 @@ export default class Parser extends Stream {
                   this.manifest.dateRanges.pop();
                 }
               },
-              "independent-segments"() {
-                this.manifest.independentSegments = true;
+              'i-frames-only'() {
+                this.manifest.iFramesOnly = true;
+
+                this.requiredCompatibilityversion(this.manifest.version, 4);
               },
-              "content-steering"() {
+              'content-steering'() {
                 this.manifest.contentSteering = camelCaseKeys(entry.attributes);
                 this.warnOnMissingAttributes_(
-                  "#EXT-X-CONTENT-STEERING",
+                  '#EXT-X-CONTENT-STEERING',
                   entry.attributes,
-                  ["SERVER-URI"]
+                  ['SERVER-URI']
                 );
               },
+
+              /** @this {Parser} */
+              define() {
+                this.manifest.definitions = this.manifest.definitions || {};
+
+                const addDef = (n, v) => {
+                  if (n in this.manifest.definitions) {
+                    // An EXT-X-DEFINE tag MUST NOT specify the same Variable Name as any other
+                    // EXT-X-DEFINE tag in the same Playlist.  Parsers that encounter duplicate
+                    // Variable Name declarations MUST fail to parse the Playlist.
+                    this.trigger('error', {
+                      message: `EXT-X-DEFINE: Duplicate name ${n}`
+                    });
+                    return;
+                  }
+                  this.manifest.definitions[n] = v;
+                };
+
+                if ('QUERYPARAM' in entry.attributes) {
+                  if ('NAME' in entry.attributes || 'IMPORT' in entry.attributes) {
+                    // An EXT-X-DEFINE tag MUST contain either a NAME, an IMPORT, or a
+                    // QUERYPARAM attribute, but only one of the three.  Otherwise, the
+                    // client MUST fail to parse the Playlist.
+                    this.trigger('error', {
+                      message: 'EXT-X-DEFINE: Invalid attributes'
+                    });
+                    return;
+                  }
+                  const val = this.params.get(entry.attributes.QUERYPARAM);
+
+                  if (!val) {
+                    // If the QUERYPARAM attribute value does not match any query parameter in
+                    // the URI or the matching parameter has no associated value, the parser
+                    // MUST fail to parse the Playlist.  If more than one parameter matches,
+                    // any of the associated values MAY be used.
+                    this.trigger('error', {
+                      message: `EXT-X-DEFINE: No query param ${entry.attributes.QUERYPARAM}`
+                    });
+                    return;
+                  }
+                  addDef(entry.attributes.QUERYPARAM, decodeURIComponent(val));
+                  return;
+                }
+
+                if ('NAME' in entry.attributes) {
+                  if ('IMPORT' in entry.attributes) {
+                    // An EXT-X-DEFINE tag MUST contain either a NAME, an IMPORT, or a
+                    // QUERYPARAM attribute, but only one of the three.  Otherwise, the
+                    // client MUST fail to parse the Playlist.
+                    this.trigger('error', {
+                      message: 'EXT-X-DEFINE: Invalid attributes'
+                    });
+                    return;
+                  }
+                  if (
+                    !('VALUE' in entry.attributes) ||
+                    typeof entry.attributes.VALUE !== 'string'
+                  ) {
+                    // This attribute is REQUIRED if the EXT-X-DEFINE tag has a NAME attribute.
+                    // The quoted-string MAY be empty.
+                    this.trigger('error', {
+                      message: `EXT-X-DEFINE: No value for ${entry.attributes.NAME}`
+                    });
+                    return;
+                  }
+                  addDef(entry.attributes.NAME, entry.attributes.VALUE);
+                  return;
+                }
+
+                if ('IMPORT' in entry.attributes) {
+                  if (!this.mainDefinitions[entry.attributes.IMPORT]) {
+                    // Covers two conditions, as mainDefinitions will always be empty on main
+                    //
+                    // EXT-X-DEFINE tags containing the IMPORT attribute MUST NOT occur in
+                    // Multivariant Playlists; they are only allowed in Media Playlists.
+                    //
+                    // If the IMPORT attribute value does not match any Variable Name in the
+                    // Multivariant Playlist, or if the Media Playlist loaded from a
+                    // Multivariant Playlist, the parser MUST fail the Playlist.
+                    this.trigger('error', {
+                      message: `EXT-X-DEFINE: No value ${entry.attributes.IMPORT} to import, or IMPORT used on main playlist`
+                    });
+                    return;
+                  }
+                  addDef(
+                    entry.attributes.IMPORT,
+                    this.mainDefinitions[entry.attributes.IMPORT]
+                  );
+                  return;
+                }
+
+                // An EXT-X-DEFINE tag MUST contain either a NAME, an IMPORT, or a QUERYPARAM
+                // attribute, but only one of the three.  Otherwise, the client MUST fail to
+                // parse the Playlist.
+                this.trigger('error', {
+                  message: 'EXT-X-DEFINE: No attribute'
+                });
+              },
+
+              'i-frame-playlist'() {
+                this.manifest.iFramePlaylists.push({
+                  attributes: entry.attributes,
+                  uri: entry.uri,
+                  timeline: currentTimeline
+                });
+
+                this.warnOnMissingAttributes_(
+                  '#EXT-X-I-FRAME-STREAM-INF',
+                  entry.attributes,
+                  ['BANDWIDTH', 'URI']
+                );
+              }
             })[entry.tagType] || noop
           ).call(self);
         },
@@ -883,9 +1006,9 @@ export default class Parser extends Stream {
           uris.push(currentUri);
 
           // if no explicit duration was declared, use the target duration
-          if (this.manifest.targetDuration && !("duration" in currentUri)) {
-            this.trigger("warn", {
-              message: "defaulting segment duration to the target duration",
+          if (this.manifest.targetDuration && !('duration' in currentUri)) {
+            this.trigger('warn', {
+              message: 'defaulting segment duration to the target duration'
             });
             currentUri.duration = this.manifest.targetDuration;
           }
@@ -924,25 +1047,31 @@ export default class Parser extends Stream {
             this.manifest.custom = this.manifest.custom || {};
             this.manifest.custom[entry.customType] = entry.data;
           }
-        },
+        }
       })[entry.type].call(self);
     });
+  }
+
+  requiredCompatibilityversion(currentVersion, targetVersion) {
+    if (currentVersion < targetVersion || !currentVersion) {
+      this.trigger('warn', {
+        message: `manifest must be at least version ${targetVersion}`
+      });
+    }
   }
 
   warnOnMissingAttributes_(identifier, attributes, required) {
     const missing = [];
 
-    required.forEach(function (key) {
+    required.forEach(function(key) {
       if (!attributes.hasOwnProperty(key)) {
         missing.push(key);
       }
     });
 
     if (missing.length) {
-      this.trigger("warn", {
-        message: `${identifier} lacks required attribute(s): ${missing.join(
-          ", "
-        )}`,
+      this.trigger('warn', {
+        message: `${identifier} lacks required attribute(s): ${missing.join(', ')}`
       });
     }
   }
@@ -963,16 +1092,16 @@ export default class Parser extends Stream {
    */
   end() {
     // flush any buffered input
-    this.lineStream.push("\n");
+    this.lineStream.push('\n');
     if (this.manifest.dateRanges.length && this.lastProgramDateTime === null) {
-      this.trigger("warn", {
+      this.trigger('warn', {
         message:
-          "A playlist with EXT-X-DATERANGE tag must contain atleast one EXT-X-PROGRAM-DATE-TIME tag",
+          'A playlist with EXT-X-DATERANGE tag must contain atleast one EXT-X-PROGRAM-DATE-TIME tag'
       });
     }
 
     this.lastProgramDateTime = null;
-    this.trigger("end");
+    this.trigger('end');
   }
   /**
    * Add an additional parser for non-standard tags
