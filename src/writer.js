@@ -1,5 +1,16 @@
 import isEqual from 'lodash/isEqual';
 
+// formats a manifest value for HLS: booleans become YES/NO, everything else passes through
+const formatValue = (value) => {
+  if (value === true) {
+    return 'YES';
+  }
+  if (value === false) {
+    return 'NO';
+  }
+  return value;
+};
+
 const handleMediaGroups = function(obj) {
   const keys = Object.keys(obj);
   let result = '';
@@ -48,7 +59,7 @@ const handleMediaGroups = function(obj) {
 
           mediaGroupItem += `,${entryKey.toUpperCase()}=${
             isQuoted ? '"' : ''
-          }${value}${isQuoted ? '"' : ''}`;
+          }${formatValue(value)}${isQuoted ? '"' : ''}`;
         });
 
         result += mediaGroupItem + '\n';
@@ -67,11 +78,7 @@ function handlePlaylists(arrPlaylists) {
   let result = '';
 
   arrPlaylists.forEach((playlist) => {
-    let playlistItem = '#EXT-X-STREAM-INF:';
-
-    const attrKeys = Object.keys(playlist.attributes);
-
-    attrKeys.forEach((attribute) => {
+    const attrs = Object.keys(playlist.attributes).map((attribute) => {
       // FIXME: an enumarated-string NONE should not be quoted in CLOSED-CAPTION attr
 
       const QuotedAttributes = [
@@ -96,15 +103,12 @@ function handlePlaylists(arrPlaylists) {
         value = parseFloat(value).toFixed(3);
       }
 
-      playlistItem += `,${attribute.toUpperCase()}=${
+      return `${attribute.toUpperCase()}=${
         isQuoted ? '"' : ''
-      }${value}${isQuoted ? '"' : ''}`;
+      }${formatValue(value)}${isQuoted ? '"' : ''}`;
     });
 
-    // adding uri
-    playlistItem += `\n${playlist.uri}\n`;
-
-    result += playlistItem + '\n';
+    result += `#EXT-X-STREAM-INF:${attrs.join(',')}\n${playlist.uri}\n\n`;
   });
 
   return result;
@@ -130,9 +134,7 @@ function handleIframePlaylists(iFramePlaylists) {
   let result = '';
 
   iFramePlaylists.forEach((playlist) => {
-    let playlistItem = '#EXT-X-I-FRAME-STREAM-INF:';
-
-    Object.keys(playlist.attributes).forEach((attribute) => {
+    const attrs = Object.keys(playlist.attributes).map((attribute) => {
       const QuotedAttributes = [
         'CODECS',
         'URI',
@@ -151,12 +153,12 @@ function handleIframePlaylists(iFramePlaylists) {
         value = `${value.width}x${value.height}`;
       }
 
-      playlistItem += `,${attribute.toUpperCase()}=${
+      return `${attribute.toUpperCase()}=${
         isQuoted ? '"' : ''
-      }${value}${isQuoted ? '"' : ''}`;
+      }${formatValue(value)}${isQuoted ? '"' : ''}`;
     });
 
-    result += playlistItem + '\n';
+    result += `#EXT-X-I-FRAME-STREAM-INF:${attrs.join(',')}\n`;
   });
 
   return result;
@@ -173,9 +175,7 @@ function handleDateRanges(dateRanges) {
   let result = '';
 
   dateRanges.forEach((dateRange) => {
-    let item = '#EXT-X-DATERANGE:';
-
-    Object.keys(dateRange).forEach((key) => {
+    const attrs = Object.keys(dateRange).map((key) => {
       const attribute = toAttributeName(key);
       // ID, CLASS and X- prefixed client attributes are quoted-strings,
       // durations and SCTE35 attributes are not
@@ -188,70 +188,66 @@ function handleDateRanges(dateRanges) {
         value = value.toISOString();
       }
 
-      item += `,${attribute}=${isQuoted ? '"' : ''}${value}${isQuoted ? '"' : ''}`;
+      return `${attribute}=${isQuoted ? '"' : ''}${formatValue(value)}${isQuoted ? '"' : ''}`;
     });
 
-    result += item + '\n';
+    result += `#EXT-X-DATERANGE:${attrs.join(',')}\n`;
   });
 
   return result;
 }
 
 function handleContentSteering(contentSteering) {
-  let item = '#EXT-X-CONTENT-STEERING:';
-
-  Object.keys(contentSteering).forEach((key) => {
+  const attrs = Object.keys(contentSteering).map((key) => {
     const attribute = toAttributeName(key);
     const isQuoted = ['SERVER-URI', 'PATHWAY-ID'].includes(attribute);
 
-    item += `,${attribute}=${isQuoted ? '"' : ''}${contentSteering[key]}${isQuoted ? '"' : ''}`;
+    return `${attribute}=${isQuoted ? '"' : ''}${formatValue(contentSteering[key])}${isQuoted ? '"' : ''}`;
   });
 
-  return item + '\n';
+  return `#EXT-X-CONTENT-STEERING:${attrs.join(',')}\n`;
 }
 
 function stringifyPart(part) {
-  let item = '#EXT-X-PART:';
-
-  Object.keys(part).forEach((key) => {
+  const attrs = Object.keys(part).map((key) => {
     const attribute = toAttributeName(key);
     const isQuoted = ['URI'].includes(attribute);
 
     // byterange is stored as an object, emit it in the hls "length@offset" form
     if (key === 'byterange') {
-      item += `,BYTERANGE="${part[key].length}@${part[key].offset}"`;
-      return;
+      return `BYTERANGE="${part[key].length}@${part[key].offset}"`;
     }
 
-    item += `,${attribute}=${isQuoted ? '"' : ''}${part[key]}${isQuoted ? '"' : ''}`;
+    return `${attribute}=${isQuoted ? '"' : ''}${formatValue(part[key])}${isQuoted ? '"' : ''}`;
   });
 
-  return item + '\n';
+  return `#EXT-X-PART:${attrs.join(',')}\n`;
 }
 
 function stringifyPreloadHint(hint) {
-  let item = '#EXT-X-PRELOAD-HINT:';
-
-  Object.keys(hint).forEach((key) => {
+  const attrs = Object.keys(hint).map((key) => {
     const attribute = toAttributeName(key);
     const value = hint[key];
     const isQuoted = ['URI'].includes(attribute);
 
     // byterange is stored as an object, emit its members as attributes
     if (key === 'byterange') {
+      const range = [];
+
       if (typeof value.length !== 'undefined') {
-        item += `,BYTERANGE-LENGTH=${value.length}`;
+        range.push(`BYTERANGE-LENGTH=${value.length}`);
       }
       if (typeof value.offset !== 'undefined') {
-        item += `,BYTERANGE-START=${value.offset}`;
+        range.push(`BYTERANGE-START=${value.offset}`);
       }
-      return;
+
+      return range.join(',');
     }
 
-    item += `,${attribute}=${isQuoted ? '"' : ''}${value}${isQuoted ? '"' : ''}`;
+    return `${attribute}=${isQuoted ? '"' : ''}${formatValue(value)}${isQuoted ? '"' : ''}`;
   });
 
-  return item + '\n';
+  return `#EXT-X-PRELOAD-HINT:${attrs.join(',')}\n`;
 }
 
 function handleParts(parts) {
@@ -263,30 +259,21 @@ function handlePreloadHints(preloadHints) {
 }
 
 function handleServerControl(serverControl) {
-  let item = '#EXT-X-SERVER-CONTROL:';
+  const attrs = Object.keys(serverControl).map((key) =>
+    `${toAttributeName(key)}=${formatValue(serverControl[key])}`);
 
-  Object.keys(serverControl).forEach((key) => {
-    item += `,${toAttributeName(key)}=${serverControl[key]}`;
-  });
-
-  return item + '\n';
+  return `#EXT-X-SERVER-CONTROL:${attrs.join(',')}\n`;
 }
 
 function handlePartInf(partInf) {
-  let item = '#EXT-X-PART-INF:';
+  const attrs = Object.keys(partInf).map((key) =>
+    `${toAttributeName(key)}=${formatValue(partInf[key])}`);
 
-  Object.keys(partInf).forEach((key) => {
-    item += `,${toAttributeName(key)}=${partInf[key]}`;
-  });
-
-  return item + '\n';
+  return `#EXT-X-PART-INF:${attrs.join(',')}\n`;
 }
 
 function handleSkip(skip) {
-  let item = '#EXT-X-SKIP:';
-
-  Object.keys(skip).forEach((key) => {
-    const attribute = toAttributeName(key);
+  const attrs = Object.keys(skip).map((key) => {
     let value = skip[key];
 
     // RECENTLY-REMOVED-DATERANGES is a tab separated list in a quoted-string
@@ -294,26 +281,24 @@ function handleSkip(skip) {
       value = `"${value.join('\t')}"`;
     }
 
-    item += `,${attribute}=${value}`;
+    return `${toAttributeName(key)}=${formatValue(value)}`;
   });
 
-  return item + '\n';
+  return `#EXT-X-SKIP:${attrs.join(',')}\n`;
 }
 
 function handleRenditionReports(renditionReports) {
   let result = '';
 
   renditionReports.forEach((report) => {
-    let item = '#EXT-X-RENDITION-REPORT:';
-
-    Object.keys(report).forEach((key) => {
+    const attrs = Object.keys(report).map((key) => {
       const attribute = toAttributeName(key);
       const isQuoted = ['URI'].includes(attribute);
 
-      item += `,${attribute}=${isQuoted ? '"' : ''}${report[key]}${isQuoted ? '"' : ''}`;
+      return `${attribute}=${isQuoted ? '"' : ''}${formatValue(report[key])}${isQuoted ? '"' : ''}`;
     });
 
-    result += item + '\n';
+    result += `#EXT-X-RENDITION-REPORT:${attrs.join(',')}\n`;
   });
 
   return result;
@@ -459,7 +444,7 @@ function stringifyTag(key, value) {
     return `#EXT-X-DISCONTINUITY-SEQUENCE:${value}\n`;
   } else if (key === 'start') {
     // PRECISE is optional, don't emit "PRECISE=undefined" when absent
-    const precise = value.precise === undefined ? '' : `,PRECISE=${value.precise}`;
+    const precise = value.precise === undefined ? '' : `,PRECISE=${formatValue(value.precise)}`;
 
     return `#EXT-X-START:TIME-OFFSET=${value.timeOffset}${precise}\n`;
   } else if (key === 'endList') {
@@ -569,14 +554,6 @@ export default function Writer(manifest) {
       stringified += stringifyTag(tag, manifest[tag]);
     }
   });
-
-  // remove , after :
-  stringified = stringified.replace(/:,/g, ':');
-
-  // replacing true and false with YES and NO
-  // because true and false were used in manifest obj
-  stringified = stringified.replace(/true/g, 'YES');
-  stringified = stringified.replace(/false/g, 'NO');
 
   return stringified;
 }

@@ -94,6 +94,10 @@ npm run test:node   # qunit on test/dist/bundle.js (after npm run build-test)
   order; `stringifyTag` dispatches per key; `handle*` helpers per tag family. Add a
   tag = add a key to `tagsInOrder` + a branch (or handler) — a branch without the
   `tagsInOrder` entry is dead code (that's how ALLOW-CACHE went unemitted for years).
+- Attribute emission has **no global text passes**: booleans are formatted at each
+  value site with `formatValue()` (true→YES / false→NO) and attribute lists are
+  built with `join(',')`. Never reintroduce a whole-output `string.replace()` —
+  it mangles values that legitimately contain `true`/`false`/:,`.
 - Manifest keys are camelCased by the parser (`startDate`, `serverUri`); emit with
   `toAttributeName(key)` to invert (`START-DATE`, `SERVER-URI`).
 - `EXT-X-DATERANGE` values: `startDate`/`endDate` are **Date objects** in the
@@ -106,9 +110,6 @@ npm run test:node   # qunit on test/dist/bundle.js (after npm run build-test)
 
 ## Known limitations (deliberate, documented in README)
 
-- Global text passes at the end of `Writer()`: `/:,/ → :` and `/true|false/ → YES|NO`.
-  Any attribute **value** containing the literal text `true`, `false` or `:,` gets
-  mangled. Fixing this needs quote-aware emission; nobody has needed it yet.
 - Widevine key stringifying is not supported; `METHOD=NONE` transitions are.
 - Low-latency tags ARE stringified (since 7.5.0): `SERVER-CONTROL`, `PART-INF`,
   `PART`, `PRELOAD-HINT`, `SKIP`, `RENDITION-REPORT`, and trailing

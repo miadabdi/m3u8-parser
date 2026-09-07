@@ -80,6 +80,7 @@ QUnit.test('round-trips #EXT-X-DEFINE', function(assert) {
     '#EXTM3U',
     '#EXT-X-TARGETDURATION:10',
     '#EXT-X-DEFINE:NAME="foo",VALUE="bar"',
+    '#EXT-X-DEFINE:NAME="flag",VALUE="true"',
     '#EXTINF:10,',
     'segment.ts',
     '#EXT-X-ENDLIST'
@@ -87,8 +88,8 @@ QUnit.test('round-trips #EXT-X-DEFINE', function(assert) {
 
   assert.deepEqual(
     manifest.definitions,
-    { foo: 'bar' },
-    'definitions survive'
+    { foo: 'bar', flag: 'true' },
+    'definitions survive (string values are not mangled into YES/NO)'
   );
 });
 
