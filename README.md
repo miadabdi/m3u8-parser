@@ -170,19 +170,20 @@ const stringified = parser.stringify();
 The output starts with `#EXTM3U` and contains the tags the writer supports:
 
 * Basic: `EXT-X-VERSION`
-* Media segment: `EXTINF`, `EXT-X-BYTERANGE`, `EXT-X-DISCONTINUITY`, `EXT-X-KEY`, `EXT-X-MAP`, `EXT-X-PROGRAM-DATE-TIME`
+* Media segment: `EXTINF`, `EXT-X-BYTERANGE`, `EXT-X-DISCONTINUITY`, `EXT-X-KEY`, `EXT-X-MAP`, `EXT-X-PROGRAM-DATE-TIME`, `EXT-X-DATERANGE`
 * Media playlist: `EXT-X-TARGETDURATION`, `EXT-X-MEDIA-SEQUENCE`, `EXT-X-DISCONTINUITY-SEQUENCE`, `EXT-X-ENDLIST`, `EXT-X-PLAYLIST-TYPE`, `EXT-X-I-FRAMES-ONLY`, `EXT-X-INDEPENDENT-SEGMENTS`, `EXT-X-DEFINE`
-* Main playlist: `EXT-X-MEDIA`, `EXT-X-STREAM-INF`, `EXT-X-I-FRAME-STREAM-INF`
+* Main playlist: `EXT-X-MEDIA`, `EXT-X-STREAM-INF`, `EXT-X-I-FRAME-STREAM-INF`, `EXT-X-CONTENT-STEERING`
 
 Notes:
 
 * `EXT-X-START` is written when `manifest.start` is present; the optional `PRECISE` attribute is only written when set.
 * `EXT-X-DEFINE` is always written back as `NAME`/`VALUE` pairs — `QUERYPARAM` and `IMPORT` definitions are resolved to plain values during parsing.
 * The deprecated `EXT-X-ALLOW-CACHE` is only written when caching is disallowed (`#EXT-X-ALLOW-CACHE:NO`); the default (allowed) emits nothing.
+* `EXT-X-DATERANGE`: `startDate`/`endDate` are written as ISO 8601 strings (they are `Date` objects in the manifest), durations as numbers, `endOnNext` as `YES`/`NO`, and `X-` prefixed client attributes are written as quoted strings.
 * `RESOLUTION` attributes are written in `WxH` form and `FRAME-RATE` is rounded to three decimal places.
 * Encryption for Widevine is not supported in stringifying.
 
-Any manifest field without a writer (for example `dateRanges`, `contentSteering` or low-latency tags like `EXT-X-PART`) is silently omitted from the output.
+Any manifest field without a writer (for example low-latency tags like `EXT-X-PART`, `EXT-X-PRELOAD-HINT` or `EXT-X-SERVER-CONTROL`) is silently omitted from the output.
 
 ## Supported Tags
 

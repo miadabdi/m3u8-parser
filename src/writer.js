@@ -162,6 +162,54 @@ function handleIframePlaylists(iFramePlaylists) {
   return result;
 }
 
+// inverts parser's camelCase back to attribute form: startDate -> START-DATE, x-Custom-Attr -> X-CUSTOM-ATTR
+const toAttributeName = (key) =>
+  key
+    .replace(/-([A-Za-z])/g, '$1')
+    .replace(/([A-Z])/g, '-$1')
+    .toUpperCase();
+
+function handleDateRanges(dateRanges) {
+  let result = '';
+
+  dateRanges.forEach((dateRange) => {
+    let item = '#EXT-X-DATERANGE:';
+
+    Object.keys(dateRange).forEach((key) => {
+      const attribute = toAttributeName(key);
+      // ID, CLASS and X- prefixed client attributes are quoted-strings,
+      // durations and SCTE35 attributes are not
+      const isQuoted =
+        ['ID', 'CLASS'].includes(attribute) || attribute.startsWith('X-');
+      let value = dateRange[key];
+
+      if (value instanceof Date) {
+        // startDate and endDate are Date objects in the manifest
+        value = value.toISOString();
+      }
+
+      item += `,${attribute}=${isQuoted ? '"' : ''}${value}${isQuoted ? '"' : ''}`;
+    });
+
+    result += item + '\n';
+  });
+
+  return result;
+}
+
+function handleContentSteering(contentSteering) {
+  let item = '#EXT-X-CONTENT-STEERING:';
+
+  Object.keys(contentSteering).forEach((key) => {
+    const attribute = toAttributeName(key);
+    const isQuoted = ['SERVER-URI', 'PATHWAY-ID'].includes(attribute);
+
+    item += `,${attribute}=${isQuoted ? '"' : ''}${contentSteering[key]}${isQuoted ? '"' : ''}`;
+  });
+
+  return item + '\n';
+}
+
 function toHexString(uint32) {
   return uint32.reduce(
     (output, elem) => output + ('00000000' + elem.toString(16)).slice(-8),
@@ -308,6 +356,12 @@ function stringifyTag(key, value) {
   } else if (key === 'definitions') {
     // handling definitions seperately
     return handleDefinitions(value);
+  } else if (key === 'dateRanges') {
+    // handling date ranges seperately
+    return handleDateRanges(value);
+  } else if (key === 'contentSteering') {
+    // handling content steering seperately
+    return handleContentSteering(value);
   } else if (key === 'iFramePlaylists') {
     // handling i-frame playlists seperately
     return handleIframePlaylists(value);
@@ -349,6 +403,7 @@ const tagsInOrder = [
   'mediaGroups',
   'playlists',
   'iFramePlaylists',
+  'contentSteering',
   'targetDuration',
   'mediaSequence',
   'playlistType',
@@ -356,6 +411,7 @@ const tagsInOrder = [
   'independentSegments',
   'iFramesOnly',
   'start',
+  'dateRanges',
   'segments',
   'endList'
 ];

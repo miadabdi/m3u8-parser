@@ -240,3 +240,36 @@ QUnit.test('round-trips RESOLUTION, FRAME-RATE and CLOSED-CAPTIONS groups', func
     'instream-id survives'
   );
 });
+
+QUnit.test('round-trips #EXT-X-DATERANGE', function(assert) {
+  const src = [
+    '#EXTM3U',
+    '#EXT-X-TARGETDURATION:10',
+    '#EXT-X-DATERANGE:ID="ad1",CLASS="comm",START-DATE="2026-09-07T10:00:00Z",PLANNED-DURATION=30.5,X-CUSTOM-ATTR="Value1"',
+    '#EXT-X-DATERANGE:ID="ad2",START-DATE="2026-09-07T11:00:00Z",END-DATE="2026-09-07T11:00:30Z",END-ON-NEXT=YES',
+    '#EXTINF:10,',
+    'segment.ts',
+    '#EXT-X-ENDLIST'
+  ].join('\n');
+
+  assert.deepEqual(
+    roundTrip(src).dateRanges,
+    parse(src).dateRanges,
+    'date ranges survive (dates, durations, booleans, X- attributes)'
+  );
+});
+
+QUnit.test('round-trips #EXT-X-CONTENT-STEERING', function(assert) {
+  const src = [
+    '#EXTM3U',
+    '#EXT-X-CONTENT-STEERING:SERVER-URI="https://cs.example.com/steer",PATHWAY-ID="p1",TTL=300',
+    '#EXT-X-STREAM-INF:BANDWIDTH=300000',
+    'video/prog_index.m3u8'
+  ].join('\n');
+
+  assert.deepEqual(
+    roundTrip(src).contentSteering,
+    parse(src).contentSteering,
+    'content steering survives'
+  );
+});
