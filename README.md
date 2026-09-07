@@ -167,7 +167,22 @@ To stringify a manifest object call `stringify` method. You can directly write t
 const stringified = parser.stringify();
 ```
 
-**NOTE**: encryption for Widevine is not supported in stringifying
+The output starts with `#EXTM3U` and contains the tags the writer supports:
+
+* Basic: `EXT-X-VERSION`
+* Media segment: `EXTINF`, `EXT-X-BYTERANGE`, `EXT-X-DISCONTINUITY`, `EXT-X-KEY`, `EXT-X-MAP`, `EXT-X-PROGRAM-DATE-TIME`
+* Media playlist: `EXT-X-TARGETDURATION`, `EXT-X-MEDIA-SEQUENCE`, `EXT-X-DISCONTINUITY-SEQUENCE`, `EXT-X-ENDLIST`, `EXT-X-PLAYLIST-TYPE`, `EXT-X-I-FRAMES-ONLY`, `EXT-X-INDEPENDENT-SEGMENTS`, `EXT-X-DEFINE`
+* Main playlist: `EXT-X-MEDIA`, `EXT-X-STREAM-INF`, `EXT-X-I-FRAME-STREAM-INF`
+
+Notes:
+
+* `EXT-X-START` is written when `manifest.start` is present; the optional `PRECISE` attribute is only written when set.
+* `EXT-X-DEFINE` is always written back as `NAME`/`VALUE` pairs — `QUERYPARAM` and `IMPORT` definitions are resolved to plain values during parsing.
+* The deprecated `EXT-X-ALLOW-CACHE` is only written when caching is disallowed (`#EXT-X-ALLOW-CACHE:NO`); the default (allowed) emits nothing.
+* `RESOLUTION` attributes are written in `WxH` form and `FRAME-RATE` is rounded to three decimal places.
+* Encryption for Widevine is not supported in stringifying.
+
+Any manifest field without a writer (for example `dateRanges`, `contentSteering` or low-latency tags like `EXT-X-PART`) is silently omitted from the output.
 
 ## Supported Tags
 

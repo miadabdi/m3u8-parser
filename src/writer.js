@@ -263,8 +263,12 @@ function stringifyTag(key, value) {
   // TODO: should we include #EXT-X-PROGRAM-DATE-TIME as playlist tag?
 
   if (key === 'allowCache') {
-    // FIXME: this tag is deprecated
-    return `#EXT-X-ALLOW-CACHE:${value ? 'YES' : 'NO'}\n`;
+    // this tag is deprecated, only emit it when caching is disallowed
+    if (value) {
+      return '';
+    }
+
+    return '#EXT-X-ALLOW-CACHE:NO\n';
   } else if (key === 'discontinuityStarts') {
     // not implemented
     return '';

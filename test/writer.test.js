@@ -179,10 +179,19 @@ QUnit.test('round-trips #EXT-X-START', function(assert) {
   );
 });
 
-QUnit.test('round-trips #EXT-X-ALLOW-CACHE:NO', function(assert) {
+QUnit.test('round-trips #EXT-X-ALLOW-CACHE:NO and omits it when YES', function(assert) {
   const manifest = roundTrip(testDataManifests.disallowCache());
 
   assert.notOk(manifest.allowCache, 'allowCache NO survives');
+
+  const parser = new Parser();
+
+  parser.push(testDataManifests.playlist());
+  parser.end();
+  assert.notOk(
+    parser.stringify().includes('ALLOW-CACHE'),
+    'deprecated tag not emitted when caching is allowed (default)'
+  );
 });
 
 QUnit.test('round-trips #EXT-X-DISCONTINUITY', function(assert) {
