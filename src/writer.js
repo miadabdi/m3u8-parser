@@ -110,6 +110,58 @@ function handlePlaylists(arrPlaylists) {
   return result;
 }
 
+function handleDefinitions(definitions) {
+  // QUERYPARAM and IMPORT definitions are resolved to plain values at
+  // parse time, so every definition is written back as a NAME/VALUE pair.
+  let result = '';
+
+  Object.keys(definitions).forEach((name) => {
+    result += `#EXT-X-DEFINE:NAME="${name}",VALUE="${definitions[name]}"\n`;
+  });
+
+  return result;
+}
+
+function handleIframePlaylists(iFramePlaylists) {
+  // samples
+  // #EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=28058971,RESOLUTION=3840x2160,CODECS="hvc1.2.4.L150.B0",URI="iframe/prog_index.m3u8"
+  // the URI is an attribute here, unlike EXT-X-STREAM-INF where it is on the next line
+
+  let result = '';
+
+  iFramePlaylists.forEach((playlist) => {
+    let playlistItem = '#EXT-X-I-FRAME-STREAM-INF:';
+
+    Object.keys(playlist.attributes).forEach((attribute) => {
+      const QuotedAttributes = [
+        'CODECS',
+        'URI',
+        'AUDIO',
+        'VIDEO',
+        'SUBTITLES',
+        'CLOSED-CAPTIONS'
+      ];
+
+      const isQuoted = QuotedAttributes.includes(attribute.toUpperCase());
+
+      let value = playlist.attributes[attribute];
+
+      if (attribute === 'RESOLUTION') {
+        // changing object data to hls desired format
+        value = `${value.width}x${value.height}`;
+      }
+
+      playlistItem += `,${attribute.toUpperCase()}=${
+        isQuoted ? '"' : ''
+      }${value}${isQuoted ? '"' : ''}`;
+    });
+
+    result += playlistItem + '\n';
+  });
+
+  return result;
+}
+
 function toHexString(uint32) {
   return uint32.reduce(
     (output, elem) => output + ('00000000' + elem.toString(16)).slice(-8),
@@ -243,6 +295,19 @@ function stringifyTag(key, value) {
     return '';
   } else if (key === 'independentSegments') {
     return '#EXT-X-INDEPENDENT-SEGMENTS\n';
+  } else if (key === 'definitions') {
+    // handling definitions seperately
+    return handleDefinitions(value);
+  } else if (key === 'iFramePlaylists') {
+    // handling i-frame playlists seperately
+    return handleIframePlaylists(value);
+  } else if (key === 'iFramesOnly') {
+    if (value) {
+      return '#EXT-X-I-FRAMES-ONLY\n';
+    }
+
+    // if value is false tag should not be present
+    return '';
   }
 
   // unknown tag
@@ -269,13 +334,16 @@ function isEmpty(element) {
 // below is equivalent in manifest object
 const tagsInOrder = [
   'version',
+  'definitions',
   'mediaGroups',
   'playlists',
+  'iFramePlaylists',
   'targetDuration',
   'mediaSequence',
   'playlistType',
   'discontinuitySequence',
   'independentSegments',
+  'iFramesOnly',
   'start',
   'segments',
   'endList'
